@@ -106,7 +106,7 @@ if uploaded_file:
     st.subheader("🧮 VIF")
     st.write(vif_df)
 
-    selected = vif_df[vif_df["VIF"] < 10]["Feature"].tolist()
+    selected = vif_df[vif_df["VIF"] < 100]["Feature"].tolist()
 
     if "const" in selected:
         selected.remove("const")
