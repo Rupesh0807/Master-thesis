@@ -169,3 +169,62 @@ if uploaded_file:
 
 else:
     st.info("👆 Upload CSV to start")
+
+
+# =========================
+# STEP 7 — AI CHAT (ADD THIS)
+# =========================
+
+import requests
+
+st.subheader("💬 AI Financial Assistant")
+
+user_query = st.text_input("Ask about your data:")
+
+if user_query:
+
+    API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2"
+    headers = {"Authorization": f"Bearer {st.secrets['HF_TOKEN']}"}
+
+    # 🔥 Context from YOUR model
+    context = f"""
+    Target Stock: {target}
+
+    Important Features:
+    {importance.head(10).to_string()}
+
+    Model Performance:
+    {pd.DataFrame(results, columns=["Model", "Train MAPE", "Test MAPE"]).to_string()}
+
+    Regression Summary:
+    {ols.summary().as_text()}
+    """
+
+    # 🔥 Better prompt
+    prompt = f"""
+    You are a financial analyst AI.
+
+    Explain clearly and simply.
+
+    {context}
+
+    User Question: {user_query}
+    """
+
+    payload = {
+        "inputs": prompt,
+        "parameters": {
+            "max_new_tokens": 300
+        }
+    }
+
+    response = requests.post(API_URL, headers=headers, json=payload)
+
+    if response.status_code == 200:
+        result = response.json()
+        answer = result[0]["generated_text"]
+
+        st.write("🤖 AI Response:")
+        st.write(answer)
+    else:
+        st.error("⚠️ LLM failed. Try again.")
