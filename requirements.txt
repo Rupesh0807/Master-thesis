@@ -8,3 +8,4 @@ matplotlib==3.8.4
 seaborn==0.13.2
 altair==4.2.2
 requests
+groq
