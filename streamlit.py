@@ -41,7 +41,7 @@ if uploaded_file:
     # =========================
     df = pd.read_csv(uploaded_file)
     df = df.rename(columns=lambda x: x.strip())
-    df = df.fillna(method="ffill").fillna(0)
+    df = df.ffill().fillna(0)
 
     date_col = df.columns[0]
     columns = df.columns[1:]
@@ -52,24 +52,34 @@ if uploaded_file:
     target = st.selectbox("🎯 Select target stock", columns)
 
     # =========================
-    # STEP 1 — RF FEATURE IMPORTANCE
-    # =========================
-    X = df[columns].select_dtypes(include=[np.number]).drop(columns=[target], errors="ignore")
-    y = df[target]
+# =========================
+# STEP 1 — SAFE FEATURE SELECTION
+# =========================
+X = df[columns].select_dtypes(include=[np.number]).copy()
 
-    rf = RandomForestRegressor(n_estimators=100, random_state=42)
-    rf.fit(X, y)
+# Remove target safely
+if target in X.columns:
+    X = X.drop(columns=[target])
 
-    importance = pd.DataFrame({
-        "Feature": X.columns,
-        "Importance": rf.feature_importances_
-    }).sort_values(by="Importance", ascending=False)
+y = pd.to_numeric(df[target], errors="coerce")
 
-    st.subheader("🌲 Random Forest Feature Importance (Top 30)")
-    st.dataframe(importance.head(30))
+# Remove invalid rows
+valid_idx = y.notna()
+X = X.loc[valid_idx]
+y = y.loc[valid_idx]
 
-    top_features = importance.head(30)["Feature"].tolist()
+# 🚨 IMPORTANT CHECKS
+if X.shape[1] == 0:
+    st.error("❌ No numeric features available after selecting target.")
+    st.stop()
 
+if len(X) < 5:
+    st.error("❌ Not enough data to train model.")
+    st.stop()
+
+# Debug (optional but useful)
+st.write("Selected Features:", X.columns.tolist())
+st.write("Shape of X:", X.shape)
     # =========================
     # STEP 2 — VIF FILTER
     # =========================
@@ -90,7 +100,11 @@ if uploaded_file:
 
     st.success(f"✔ {len(selected)} features retained after VIF filtering")
 
-    X_features = df[selected]
+    X_features = df[selected].select_dtypes(include=[np.number]).copy()
+
+    if X_features.shape[1] == 0:
+        st.error("❌ No features left after VIF filtering.")
+        st.stop()
 
     # =========================
     # STEP 3 — TRAIN / TEST SPLIT
